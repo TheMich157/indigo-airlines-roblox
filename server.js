@@ -21,21 +21,22 @@ const io = socketIo(server);
 // Middleware
 app.use(cors());
 app.use(express.json());
-// API Routes prefix
-app.use('/api', (req, res, next) => {
-    // Add API middleware here (e.g., authentication)
-    next();
-});
+// Import middleware
+const { authenticateToken, verifyRole } = require('./middleware/auth');
+
+// Protected API routes
+app.use('/api/flights', authenticateToken, flightRoutes);
+app.use('/api/bookings', authenticateToken, bookingRoutes);
+app.use('/api/atc', authenticateToken, verifyRole(['atc']), atcRoutes);
+app.use('/api/pilot', authenticateToken, verifyRole(['pilot']), pilotRoutes);
+
+// Public routes
 
 // Make io available to routes
 app.set('io', io);
 
-// API Routes
+// Auth routes (public)
 app.use('/api/auth', authRoutes);
-app.use('/api/flights', flightRoutes);
-app.use('/api/bookings', bookingRoutes);
-app.use('/api/atc', atcRoutes);
-app.use('/api/pilot', pilotRoutes);
 
 // Serve static files from the public directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -185,24 +186,6 @@ const PORT = process.env.PORT || 8000;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
-
-// Helper functions
-function authenticateToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
-        return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    jwt.verify(token, 'your-secret-key', (err, user) => {
-        if (err) {
-            return res.status(403).json({ error: 'Invalid token' });
-        }
-        req.user = user;
-        next();
-    });
-}
 
 // Export for testing
 module.exports = app;
